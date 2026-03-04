@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def MNK(S0, poly_order=2):
+def MNK(S0, poly_order=2, verbose=True):
     n = len(S0)
     x = np.arange(n, dtype=float)
     # np.polyfit повертає коефіцієнти від старшого до молодшого
@@ -11,14 +11,15 @@ def MNK(S0, poly_order=2):
     Yout = np.polyval(coeffs_desc, x).reshape(-1, 1)
     C = coeffs_desc[::-1].reshape(-1, 1)
 
-    terms = [f"{C[0, 0]:.6f}"]
-    for p in range(1, poly_order + 1):
-        terms.append(f"{C[p, 0]:.6e} * t^{p}")
-    print(f"  Регресійна модель: y(t) = {' + '.join(terms)}")
+    if verbose:
+        terms = [f"{C[0, 0]:.6f}"]
+        for p in range(1, poly_order + 1):
+            terms.append(f"{C[p, 0]:.6e} * t^{p}")
+        print(f"  Регресійна модель: y(t) = {' + '.join(terms)}")
     return Yout, C
 
 
-def MNK_Extrapol(S0, koef, poly_order=2):
+def MNK_Extrapol(S0, koef, poly_order=2, verbose=True):
     n = len(S0)
     x = np.arange(n, dtype=float)
     coeffs_desc = np.polyfit(x, S0, poly_order)
@@ -27,10 +28,11 @@ def MNK_Extrapol(S0, koef, poly_order=2):
     Yout_ext = np.polyval(coeffs_desc, x_ext).reshape(-1, 1)
     C = coeffs_desc[::-1].reshape(-1, 1)
 
-    terms = [f"{C[0, 0]:.6f}"]
-    for p in range(1, poly_order + 1):
-        terms.append(f"{C[p, 0]:.6e} * t^{p}")
-    print(f"  Регресійна модель (екстраполяція): y(t) = {' + '.join(terms)}")
+    if verbose:
+        terms = [f"{C[0, 0]:.6f}"]
+        for p in range(1, poly_order + 1):
+            terms.append(f"{C[p, 0]:.6e} * t^{p}")
+        print(f"  Регресійна модель (екстраполяція): y(t) = {' + '.join(terms)}")
     return Yout_ext, C
 
 
@@ -64,8 +66,8 @@ def stat_characteristics(S, label=""):
     }
 
 
-def stat_characteristics_detrended(S, label=""):
-    Yout, _ = MNK(S)
+def stat_characteristics_detrended(S, label="", poly_order=2):
+    Yout, _ = MNK(S, poly_order=poly_order)
     residuals = S - Yout.flatten()
     return stat_characteristics(residuals, label + " (залишки)")
 
@@ -76,6 +78,39 @@ def r2_score(S_real, S_model, label=""):
     r2 = 1 - ss_res / ss_tot if ss_tot != 0 else 0
     print(f"\n  R^2 ({label}): {r2:.6f}")
     return r2
+
+
+def find_best_poly_order(S, orders=(1, 2, 3)):
+    """Перебирає поліноми різних ступенів, обирає найкращий за R²."""
+    print(f"\n  {'─' * 60}")
+    print(f"  Автоматичний вибір ступеня полінома (порівняння R²)")
+    print(f"  {'─' * 60}")
+    print(f"  {'Ступінь':>10} {'R²':>14} {'Примітка'}")
+    print(f"  {'─' * 60}")
+
+    best_order = orders[0]
+    best_r2 = -np.inf
+    results = {}
+
+    for order in orders:
+        Yout, C = MNK(S, poly_order=order, verbose=False)
+        ss_res = np.sum((S - Yout.flatten()) ** 2)
+        ss_tot = np.sum((S - np.mean(S)) ** 2)
+        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else 0
+        results[order] = r2
+        if r2 > best_r2:
+            best_r2 = r2
+            best_order = order
+
+    for order in orders:
+        marker = " <-- обрано" if order == best_order else ""
+        print(f"  {order:>10} {results[order]:>14.6f} {marker}")
+
+    print(f"  {'─' * 60}")
+    print(f"  Обраний ступінь полінома: {best_order} (R² = {best_r2:.6f})")
+    print(f"  {'─' * 60}")
+
+    return best_order
 
 
 def sliding_window_clean(S0, n_wind=5):
@@ -95,11 +130,11 @@ def sliding_window_clean(S0, n_wind=5):
     return S_clean
 
 
-def synthesize_model(S_real, n_av_pct=5, q_av=3):
+def synthesize_model(S_real, n_av_pct=5, q_av=3, poly_order=2):
     n = len(S_real)
 
-    # 1) Визначення тренду реальних даних (МНК квадратичний)
-    Yout_trend, C_trend = MNK(S_real, poly_order=2)
+    # 1) Визначення тренду реальних даних (МНК)
+    Yout_trend, C_trend = MNK(S_real, poly_order=poly_order)
     trend = Yout_trend.flatten()
 
     # 2) Визначення залишків (шуму) реальних даних
@@ -133,7 +168,9 @@ def synthesize_model(S_real, n_av_pct=5, q_av=3):
     return S_model, model_trend, C_trend, av_indices
 
 
-def verify_model(S_real, S_model, label_real="Реальні дані", label_model="Модель"):
+def verify_model(
+    S_real, S_model, label_real="Реальні дані", label_model="Модель", poly_order=2
+):
     stats_real = stat_characteristics(S_real, label_real)
     stats_model = stat_characteristics(S_model, label_model)
 
@@ -158,8 +195,8 @@ def verify_model(S_real, S_model, label_real="Реальні дані", label_mo
     print(f"  {'-' * 68}")
 
     # Порівняння трендів
-    Yout_real, _ = MNK(S_real, poly_order=2)
-    Yout_model, _ = MNK(S_model, poly_order=2)
+    Yout_real, _ = MNK(S_real, poly_order=poly_order)
+    Yout_model, _ = MNK(S_model, poly_order=poly_order)
     r2_real = r2_score(S_real, Yout_real.flatten(), "Тренд реальних даних")
     r2_model = r2_score(S_model, Yout_model.flatten(), "Тренд моделі")
 
@@ -203,15 +240,15 @@ def plot_comparison(S_real, S_model, title, save_name=None):
     plt.show()
 
 
-def plot_histograms(S_real, S_model, save_name=None):
+def plot_histograms(S_real, S_model, poly_order=2, save_name=None):
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
     # Залишки реальних даних
-    Yout_real, _ = MNK(S_real, poly_order=2)
+    Yout_real, _ = MNK(S_real, poly_order=poly_order)
     resid_real = S_real - Yout_real.flatten()
 
     # Залишки моделі
-    Yout_model, _ = MNK(S_model, poly_order=2)
+    Yout_model, _ = MNK(S_model, poly_order=poly_order)
     resid_model = S_model - Yout_model.flatten()
 
     axes[0].hist(resid_real, bins=40, facecolor="blue", alpha=0.6, edgecolor="black")
@@ -283,10 +320,15 @@ if __name__ == "__main__":
     print("  ЕТАП 2. Оцінка динаміки тренду реальних даних")
     print("=" * 70)
 
-    # МНК — квадратичне згладжування
-    Yout_real, C_real = MNK(prices, poly_order=2)
+    # Автоматичний вибір найкращого ступеня полінома
+    best_poly = find_best_poly_order(prices, orders=(1, 2, 3))
+    poly_names = {1: "Лінійний", 2: "Квадратичний", 3: "Кубічний"}
+    poly_name = poly_names.get(best_poly, f"Поліном {best_poly}-го ступеня")
+
+    # МНК — згладжування з автоматично обраним ступенем
+    Yout_real, C_real = MNK(prices, poly_order=best_poly)
     r2_trend = r2_score(
-        prices, Yout_real.flatten(), "Квадратичний тренд реальних даних"
+        prices, Yout_real.flatten(), f"{poly_name} тренд реальних даних"
     )
 
     # Аналіз напрямку тренду
@@ -296,20 +338,25 @@ if __name__ == "__main__":
     trend_pct = (trend_change / trend_start) * 100
 
     print("\n  Динаміка тренду:")
+    print(f"    Обраний ступінь полінома   : {best_poly} ({poly_name})")
     print(f"    Початкове значення тренду : ${trend_start:,.2f}")
     print(f"    Кінцеве значення тренду   : ${trend_end:,.2f}")
     print(f"    Зміна                     : ${trend_change:,.2f} ({trend_pct:+.2f}%)")
-    if C_real[2, 0] > 0:
+    if best_poly >= 2 and C_real[2, 0] > 0:
         print("    Характер тренду           : Зростання (a2 > 0)")
-    elif C_real[2, 0] < 0:
+    elif best_poly >= 2 and C_real[2, 0] < 0:
         print("    Характер тренду           : Спадання (a2 < 0)")
+    elif best_poly == 1 and C_real[1, 0] > 0:
+        print("    Характер тренду           : Лінійне зростання (a1 > 0)")
+    elif best_poly == 1 and C_real[1, 0] < 0:
+        print("    Характер тренду           : Лінійне спадання (a1 < 0)")
     else:
-        print("    Характер тренду           : Лінійний")
+        print("    Характер тренду           : Стаціонарний")
 
     plot_data_and_trend(
         prices,
         Yout_real,
-        "Етап 2: Реальні дані Bitcoin та квадратичний тренд (МНК)",
+        f"Етап 2: Реальні дані Bitcoin та {poly_name.lower()} тренд (МНК, ступінь {best_poly})",
         save_name="plot_01_trend.png",
     )
 
@@ -322,7 +369,7 @@ if __name__ == "__main__":
 
     stats_raw = stat_characteristics(prices, "Вхідна вибірка (ціна Bitcoin, USD)")
     stats_detrended = stat_characteristics_detrended(
-        prices, "Вибірка після видалення тренду"
+        prices, "Вибірка після видалення тренду", poly_order=best_poly
     )
 
     # Детекція та очищення аномалій
@@ -333,13 +380,13 @@ if __name__ == "__main__":
     )
 
     # МНК — модель очищених даних
-    Yout_clean, C_clean = MNK(prices_clean, poly_order=2)
+    Yout_clean, C_clean = MNK(prices_clean, poly_order=best_poly)
     r2_clean = r2_score(prices_clean, Yout_clean.flatten(), "Тренд очищених даних")
 
     plot_data_and_trend(
         prices_clean,
         Yout_clean,
-        "Етап 3: Очищені дані Bitcoin та квадратичний тренд (МНК)",
+        f"Етап 3: Очищені дані Bitcoin та {poly_name.lower()} тренд (МНК, ступінь {best_poly})",
         save_name="plot_02_clean_trend.png",
     )
 
@@ -355,12 +402,12 @@ if __name__ == "__main__":
     q_av = 3  # коефіцієнт переваги аномальних похибок
 
     S_model, model_trend, C_model, av_indices = synthesize_model(
-        prices_clean, n_av_pct=n_av_pct, q_av=q_av
+        prices_clean, n_av_pct=n_av_pct, q_av=q_av, poly_order=best_poly
     )
 
     # Верифікація
     stats_real_v, stats_model_v = verify_model(
-        prices, S_model, "Реальні дані", "Синтезована модель"
+        prices, S_model, "Реальні дані", "Синтезована модель", poly_order=best_poly
     )
 
     # Порівняльні графіки
@@ -371,11 +418,13 @@ if __name__ == "__main__":
         save_name="plot_03_comparison.png",
     )
 
-    plot_histograms(prices, S_model, save_name="plot_04_histograms.png")
+    plot_histograms(
+        prices, S_model, poly_order=best_poly, save_name="plot_04_histograms.png"
+    )
 
     # Очищення синтезованої моделі та МНК
     S_model_clean = sliding_window_clean(S_model, n_wind)
-    Yout_model_clean, _ = MNK(S_model_clean, poly_order=2)
+    Yout_model_clean, _ = MNK(S_model_clean, poly_order=best_poly)
     r2_model = r2_score(
         S_model_clean, Yout_model_clean.flatten(), "Тренд очищеної моделі"
     )
@@ -383,7 +432,7 @@ if __name__ == "__main__":
     plot_data_and_trend(
         S_model_clean,
         Yout_model_clean,
-        "Етап 4: Синтезована модель (очищена) та тренд (МНК)",
+        f"Етап 4: Синтезована модель (очищена) та тренд (МНК, ступінь {best_poly})",
         save_name="plot_05_model_trend.png",
     )
 
@@ -398,7 +447,7 @@ if __name__ == "__main__":
     koef = int(np.ceil(n * koef_extrapol))
     print(f"  Інтервал прогнозу: {koef} точок ({koef_extrapol * 100:.0f}% від вибірки)")
 
-    Yout_extrapol, C_ext = MNK_Extrapol(prices_clean, koef, poly_order=2)
+    Yout_extrapol, C_ext = MNK_Extrapol(prices_clean, koef, poly_order=best_poly)
 
     # Статистичні характеристики прогнозу
     extrapol_values = Yout_extrapol[n:, 0]
@@ -414,7 +463,7 @@ if __name__ == "__main__":
         prices_clean,
         Yout_extrapol,
         koef,
-        "Етап 5: Прогнозування курсу Bitcoin (МНК екстраполяція)",
+        f"Етап 5: Прогнозування курсу Bitcoin (МНК екстраполяція, ступінь {best_poly})",
         save_name="plot_06_extrapolation.png",
     )
 
@@ -425,13 +474,26 @@ if __name__ == "__main__":
     print("  ЕТАП 6. Аналіз отриманих результатів")
     print("=" * 70)
 
+    # Визначення старшого коефіцієнта для аналізу характеру тренду
+    top_coeff = C_real[best_poly, 0]
+    if best_poly >= 2:
+        trend_direction = "Тренд спадний" if C_real[2, 0] < 0 else "Тренд зростання"
+        coeff_label = f"Коефіцієнт a{best_poly} = {top_coeff:.6e}"
+    else:
+        trend_direction = "Тренд спадний" if C_real[1, 0] < 0 else "Тренд зростання"
+        coeff_label = f"Коефіцієнт a1 = {C_real[1, 0]:.6e}"
+
     print(f"""
+  0. ВИБІР СТУПЕНЯ ПОЛІНОМА:
+     Порівняння R² для поліномів 1-го, 2-го та 3-го ступеня:
+     - Автоматично обраний ступінь: {best_poly} ({poly_name})
+
   1. ДИНАМІКА ТРЕНДУ:
-     Квадратичний тренд (МНК) за період спостереження ({dates[0]} — {dates[-1]}):
+     {poly_name} тренд (МНК) за період спостереження ({dates[0]} — {dates[-1]}):
      - Зміна ціни за трендом: ${trend_change:,.2f} ({trend_pct:+.2f}%)
      - Коефіцієнт детермінації R^2 = {r2_trend:.4f}
-     - Квадратичний коефіцієнт a2 = {C_real[2, 0]:.6e}
-       {"Тренд спадний" if C_real[2, 0] < 0 else "Тренд зростання"}
+     - {coeff_label}
+       {trend_direction}
 
   2. СТАТИСТИЧНІ ХАРАКТЕРИСТИКИ:
      - Середня ціна         : ${stats_raw["mean"]:,.2f}
@@ -446,7 +508,7 @@ if __name__ == "__main__":
      - Модель адекватно відтворює тренд та стохастичну складову реальних даних
 
   4. ПРОГНОЗУВАННЯ:
-     - Прогноз на {koef} точок вперед (МНК екстраполяція)
+     - Прогноз на {koef} точок вперед (МНК екстраполяція, ступінь {best_poly})
      - Довірчий інтервал    : ±${2 * std_resid:,.2f} (95%, 2σ)
      - Прогнозне значення на кінець інтервалу: ${Yout_extrapol[-1, 0]:,.2f}
     """)
