@@ -1,19 +1,3 @@
-"""
-Рекурентне згладжування альфа-бета та альфа-бета-гамма фільтрами.
-
-Моделі:
-  1) alpha-beta   — модель з постійною швидкістю (позиція + швидкість)
-  2) alpha-beta-gamma — модель з постійним прискоренням (позиція + швидкість + прискорення)
-
-Заходи подолання розбіжності фільтра:
-  - Адаптивне обмеження коефіцієнтів (0 < alpha,beta,gamma < 1)
-  - Контроль нев'язки (innovation): якщо |нев'язка| > k*sigma, коефіцієнти
-    тимчасово збільшуються (фільтр «довіряє» вимірюванню більше)
-  - Ковзне вікно оцінки дисперсії нев'язки для адаптації порогу
-  - Обмеження швидкості та прискорення (clamp) для запобігання
-    необмеженого зростання оцінок стану
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -85,45 +69,6 @@ def alpha_beta_filter(
     innov_window=50,
     max_velocity=None,
 ):
-    """
-    Рекурентний альфа-бета фільтр (модель постійної швидкості).
-
-    Рівняння:
-      Прогноз:
-        x_pred[k] = x_est[k-1] + v_est[k-1] * dt
-        v_pred[k] = v_est[k-1]
-      Корекція:
-        innovation = z[k] - x_pred[k]
-        x_est[k] = x_pred[k] + alpha * innovation
-        v_est[k] = v_pred[k] + (beta / dt) * innovation
-
-    Параметри
-    ---------
-    z : array_like
-        Вимірювання (вхідний сигнал).
-    alpha : float
-        Коефіцієнт корекції позиції (0 < alpha < 1).
-    beta : float
-        Коефіцієнт корекції швидкості (0 < beta < 1).
-    dt : float
-        Крок дискретизації.
-    adaptive : bool
-        Якщо True — увімкнено адаптивне збільшення коефіцієнтів
-        при великих нев'язках (захист від розбіжності).
-    k_sigma : float
-        Поріг нев'язки в одиницях sigma для адаптації.
-    innov_window : int
-        Розмір ковзного вікна для оцінки sigma нев'язки.
-    max_velocity : float or None
-        Максимально допустима |швидкість|. Обмеження (clamp) для
-        запобігання розбіжності.
-
-    Повертає
-    --------
-    x_est : np.ndarray  — згладжені значення (позиція)
-    v_est : np.ndarray  — оцінка швидкості
-    innovations : np.ndarray — послідовність нев'язок
-    """
     n = len(z)
     x_est = np.zeros(n)
     v_est = np.zeros(n)
@@ -163,7 +108,7 @@ def alpha_beta_filter(
         x_est[k] = x_pred + a_k * innov
         v_est[k] = v_pred + (b_k / dt) * innov
 
-        # ── Обмеження швидкості (clamp) ──
+        # ── Обмеження швидкості ──
         if max_velocity is not None:
             v_est[k] = np.clip(v_est[k], -max_velocity, max_velocity)
 
@@ -187,46 +132,6 @@ def alpha_beta_gamma_filter(
     max_velocity=None,
     max_acceleration=None,
 ):
-    """
-    Рекурентний альфа-бета-гамма фільтр (модель постійного прискорення).
-
-    Рівняння:
-      Прогноз:
-        x_pred[k] = x_est[k-1] + v_est[k-1]*dt + 0.5*a_est[k-1]*dt²
-        v_pred[k] = v_est[k-1] + a_est[k-1]*dt
-        a_pred[k] = a_est[k-1]
-      Корекція:
-        innovation = z[k] - x_pred[k]
-        x_est[k] = x_pred[k] + alpha * innovation
-        v_est[k] = v_pred[k] + (beta / dt) * innovation
-        a_est[k] = a_pred[k] + (2*gamma / dt²) * innovation
-
-    Параметри
-    ---------
-    z : array_like
-        Вимірювання (вхідний сигнал).
-    alpha, beta, gamma : float
-        Коефіцієнти корекції (0 < кожен < 1).
-    dt : float
-        Крок дискретизації.
-    adaptive : bool
-        Адаптивний режим (захист від розбіжності).
-    k_sigma : float
-        Поріг нев'язки (в sigma) для адаптації.
-    innov_window : int
-        Розмір ковзного вікна оцінки sigma.
-    max_velocity : float or None
-        Обмеження |швидкості|.
-    max_acceleration : float or None
-        Обмеження |прискорення|.
-
-    Повертає
-    --------
-    x_est : np.ndarray  — згладжені значення (позиція)
-    v_est : np.ndarray  — оцінка швидкості
-    a_est : np.ndarray  — оцінка прискорення
-    innovations : np.ndarray — нев'язки
-    """
     n = len(z)
     x_est = np.zeros(n)
     v_est = np.zeros(n)
@@ -270,7 +175,7 @@ def alpha_beta_gamma_filter(
         v_est[k] = v_pred + (b_k / dt) * innov
         a_est[k] = a_pred + (2.0 * g_k / dt**2) * innov
 
-        # ── Обмеження (clamp) ──
+        # ── Обмеження ──
         if max_velocity is not None:
             v_est[k] = np.clip(v_est[k], -max_velocity, max_velocity)
         if max_acceleration is not None:
@@ -761,7 +666,7 @@ if __name__ == "__main__":
         - Ковзне вікно ({50} точок) для оцінки поточної σ нев'язки
         - Обмеження масштабованих коефіцієнтів: max = 0.95
 
-     c) Обмеження (clamp) оцінок стану:
+     c) Обмеження оцінок стану:
         - Максимальна швидкість:    {max_velocity:.2f} USD/крок (5% діапазону)
         - Максимальне прискорення:  {max_acceleration:.2f} USD/крок² (1% діапазону)
         - Запобігає необмеженому зростанню внутрішніх змінних фільтра
@@ -775,13 +680,3 @@ if __name__ == "__main__":
     if "abg" in results:
         mse_v = np.mean((prices - results["abg"]["x_est"]) ** 2)
         print(f"     α-β-γ фільтр: MSE = {mse_v:.4f}")
-
-    print(f"""
-  3. РЕКОМЕНДАЦІЇ:
-     - Для погодинних даних Bitcoin α-β фільтр є достатнім
-     - α-β-γ фільтр доцільний при наявності вираженого прискорення тренду
-     - Параметр alpha слід підбирати експериментально:
-       * alpha < 0.1  — сильне згладжування, повільна реакція
-       * alpha ~ 0.15 — збалансований варіант
-       * alpha > 0.3  — слабке згладжування, швидка реакція
-    """)
