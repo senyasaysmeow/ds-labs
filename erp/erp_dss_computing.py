@@ -153,7 +153,7 @@ def evaluate(file_name: str, raw_weights: list[float]) -> None:
     print("\nТОП-5 НАЙКРАЩИХ:")
     print("-" * 50)
     for rank_pos, idx in enumerate(ranked_indices[:5], start=1):
-        print(f"  {rank_pos}. {product_names[idx]:<20}  скор = {scores[idx]:.4f}")
+        print(f"  {rank_pos}. {product_names[idx]:<20}  оцінка = {scores[idx]:.4f}")
     print("-" * 50)
 
 
