@@ -102,7 +102,7 @@ def compute_corner_points() -> list[tuple[float, float]]:
     corners.append((0.0, 0.0))
 
     # Вершина B: перетин 1-го обм. з x2=0
-    # 6x1 + 4*0 = 24 → x1=4; перевірка: 4 + 0 = 4 ≤ 6 ✓
+    # 6x1 + 4*0 = 24 → x1=4; перевірка: 4 + 0 = 4 ≤ 6
     x1_b = B1 / A11
     if A21 * x1_b + A22 * 0 <= B2 + 1e-9:
         corners.append((x1_b, 0.0))
@@ -119,7 +119,7 @@ def compute_corner_points() -> list[tuple[float, float]]:
             corners.append((max(0, x1_c), max(0, x2_c)))
 
     # Вершина D: перетин 2-го обм. з x1=0
-    # 0 + 2x2 = 6 → x2=3; перевірка: 0 + 4*3=12 ≤ 24 ✓
+    # 0 + 2x2 = 6 → x2=3; перевірка: 0 + 4*3=12 ≤ 24
     x2_d = B2 / A22
     if A11 * 0 + A12 * x2_d <= B1 + 1e-9:
         corners.append((0.0, x2_d))
