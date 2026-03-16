@@ -254,7 +254,7 @@ def print_problem_statement() -> None:
 
 def print_graphical_analysis() -> None:
     print("-" * 72)
-    print("ГРАФІЧНИЙ МЕТОД (аналітична частина)")
+    print("ГРАФІЧНИЙ МЕТОД")
     print("-" * 72)
     corners = compute_corner_points()
     labels = ["A(0; 0)", "B(4; 0)", "C(3; 1.5)", "D(0; 3)"]
@@ -275,14 +275,8 @@ def print_graphical_analysis() -> None:
     px, py = best_corner
     v1 = A11 * px + A12 * py
     v2 = A21 * px + A22 * py
-    print(
-        f"    Бюджет     : {A11}×{px:.2f} + {A12}×{py:.2f} = {v1:.2f}  (ліміт {B1})  "
-        f"{'[АКТИВНЕ]' if abs(v1 - B1) < 1e-4 else ''}"
-    )
-    print(
-        f"    Потужність : {A21}×{px:.2f} + {A22}×{py:.2f} = {v2:.2f}  (ліміт {B2})  "
-        f"{'[АКТИВНЕ]' if abs(v2 - B2) < 1e-4 else ''}"
-    )
+    print(f"    Бюджет     : {A11}×{px:.2f} + {A12}×{py:.2f} = {v1:.2f}")
+    print(f"    Потужність : {A21}×{px:.2f} + {A22}×{py:.2f} = {v2:.2f}")
     print()
 
 
@@ -317,22 +311,6 @@ def print_comparison(ortools_res: dict) -> None:
     print(f"  {'OR-Tools (GLOP)':<35} {ox1:>8.4f} {ox2:>8.4f} {oZ:>10.4f}")
     print()
 
-    diff_x1 = abs(gx1 - ox1)
-    diff_x2 = abs(gx2 - ox2)
-    diff_Z = abs(gZ - oZ)
-    print(
-        f"  Відхилення |Δx₁| = {diff_x1:.2e},  |Δx₂| = {diff_x2:.2e},  |ΔZ| = {diff_Z:.2e}"
-    )
-
-    if diff_Z < 1e-4 and diff_x1 < 1e-4 and diff_x2 < 1e-4:
-        print()
-        print("  ВИСНОВОК: Обидва методи дають ІДЕНТИЧНИЙ результат.")
-        print("  Графічний метод підтверджує точність OR-Tools GLOP-розв'язку.")
-    else:
-        print()
-        print("  УВАГА: Результати розходяться більше за поріг 1e-4.")
-    print()
-
 
 # =============================================================================
 # 5. Головна функція
@@ -346,16 +324,13 @@ def main() -> None:
     ortools_res = solve_with_ortools()
     print_ortools_result(ortools_res)
 
-    # Graphical method (analytical)
+    # Graphical method
     print_graphical_analysis()
 
     # Comparison
     print_comparison(ortools_res)
 
     # Graphical plot
-    print("-" * 72)
-    print("ПОБУДОВА ГРАФІКА")
-    print("-" * 72)
     plot_graphical_method(ortools_res, save_path="lp_graphical.png")
 
 
