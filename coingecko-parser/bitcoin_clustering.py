@@ -41,7 +41,7 @@ def prepare_features(df, window_size=24):
     return df_features
 
 
-def kmeans_clustering(df_features, n_clusters, features_list=None):
+def kmeans_clustering(df_features, n_clusters, features_list):
     print(f"\n{'=' * 60}")
     print("  K-MEANS КЛАСТЕРИЗАЦІЯ")
     print(f"{'=' * 60}")
