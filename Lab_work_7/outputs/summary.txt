@@ -1,0 +1,11 @@
+Data_Set_7 analysis summary
+Rows analyzed: 2155
+Period: 2008-01-01 .. 2009-10-31
+Countries: 21
+Customers: 87
+Products: 77
+Total revenue: 1,354,458.59
+Total quantity: 51,317
+Top customer by revenue: Jena  Wilson (117,483.39)
+Top product by revenue: Côte de Blaye (149,984.20)
+Forecast horizon: 6 months
